@@ -1,42 +1,43 @@
 #define MINIAUDIO_IMPLEMENTATION
 
+#include <chrono>
 #include <iostream>
+#include <random>
 
 #include "constants.hpp"
+#include "deepnote.hpp"
 #include "miniaudio.h"
-#include "tone.hpp"
-
-THX thx(32);
-
-void data_callback(ma_device* pDevice, void* pOutput, const void* pInput,
-                   ma_uint32 frameCount) {
-    thx.render(pOutput, frameCount);
-};
 
 int main() {
-    ma_device_config config = ma_device_config_init(ma_device_type_playback);
-    config.playback.format = ma_format_f32;  // Set to ma_format_unknown to use
-                                             // the device's native format.
-    config.playback.channels =
-        1;  // Set to 0 to use the device's native channel count.
-    config.sampleRate =
-        SAMPLERATE;  // Set to 0 to use the device's native sample rate.
+    // Seed random generator
+    auto t = std::chrono::duration_cast<std::chrono::milliseconds>(
+                 std::chrono::system_clock::now().time_since_epoch())
+                 .count();
+    srand(t);
 
-    config.dataCallback = data_callback;  // This function will be called
-                                          // when miniaudio needs more data.
+    static DeepNote deepnote(30);
+
+    auto callback = [](ma_device* pDevice, void* pOutput, const void* pInput,
+                       ma_uint32 frameCount) {
+        deepnote.render(pOutput, frameCount);
+    };
+
+    ma_device_config config = ma_device_config_init(ma_device_type_playback);
+    config.playback.format = ma_format_f32;
+    config.playback.channels = 1;
+    config.sampleRate = SAMPLERATE;
+    config.dataCallback = callback;
 
     ma_device device;
     if (ma_device_init(NULL, &config, &device) != MA_SUCCESS) {
-        return -1;  // Failed to initialize the device.
-    }
+        return -1;
+    };
 
-    ma_device_start(&device);  // The device is sleeping by default so you'll
-                               // need to start it manually.
+    ma_device_start(&device);
 
-    std::cout << "Wavey Sound Generator\nHit enter to stop\n";
+    std::cout << "Realtime deep note generator\nHit enter to stop\n";
     std::cin.ignore();
 
-    ma_device_uninit(
-        &device);  // This will stop the device so no need to do that manually.
+    ma_device_uninit(&device);
     return 0;
 }
